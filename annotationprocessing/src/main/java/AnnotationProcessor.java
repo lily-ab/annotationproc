@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@SupportedAnnotationTypes("ru.sysout.annotationprocessing.ToString")
+@SupportedAnnotationTypes("ToString")
 @AutoService(Processor.class)
 public class AnnotationProcessor extends AbstractProcessor {
     @Override
