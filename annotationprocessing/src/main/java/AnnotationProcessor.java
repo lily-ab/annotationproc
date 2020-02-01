@@ -1,11 +1,10 @@
 import com.google.auto.service.AutoService;
 
-import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.Processor;
-import javax.annotation.processing.RoundEnvironment;
-import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.*;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
@@ -18,6 +17,17 @@ import java.util.stream.Collectors;
 @SupportedAnnotationTypes("ToString")
 @AutoService(Processor.class)
 public class AnnotationProcessor extends AbstractProcessor {
+
+    private Filer filer;
+    private Messager messager;
+
+    @Override
+    public synchronized void init(ProcessingEnvironment processingEnv) {
+        super.init(processingEnv);
+        filer = processingEnv.getFiler();
+        messager = processingEnv.getMessager();
+    }
+
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
 
@@ -30,7 +40,7 @@ public class AnnotationProcessor extends AbstractProcessor {
             List<Element> getters = annotatedMethods.get(true);
             List<Element> otherMethods = annotatedMethods.get(false);
 
-            otherMethods.forEach(element -> processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "@ToString must be applied to a getXxx method", element));
+            otherMethods.forEach(element -> messager.printMessage(Diagnostic.Kind.ERROR, "@ToString must be applied to a getXxx method", element));
 
             if (getters.isEmpty()) {
                 continue;
@@ -42,7 +52,7 @@ public class AnnotationProcessor extends AbstractProcessor {
             try {
                 writeBuilderFile(className, stringGetters);
             } catch (IOException e) {
-                e.printStackTrace();
+                error(annotation, e.getMessage(),stringGetters);
             }
 
         }
@@ -58,10 +68,9 @@ public class AnnotationProcessor extends AbstractProcessor {
             packageName = className.substring(0, lastDot);
         }
 
-        String simpleClassName = className.substring(lastDot + 1);
         String toStringsClassName = "ToStrings";
 
-        JavaFileObject builderFile = processingEnv.getFiler().createSourceFile(toStringsClassName);
+        JavaFileObject builderFile = filer.createSourceFile(toStringsClassName);
         try (PrintWriter out = new PrintWriter(builderFile.openWriter())) {
 
             if (packageName != null) {
@@ -87,5 +96,12 @@ public class AnnotationProcessor extends AbstractProcessor {
             out.println("}");
 
         }
+    }
+
+    private void error(Element e, String msg, Object... args) {
+        messager.printMessage(
+                Diagnostic.Kind.ERROR,
+                String.format(msg, args),
+                e);
     }
 }
